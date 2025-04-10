@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>2D Maze Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+    canvas {
+      display: block;
+      margin: auto;
+      touch-action: none;
+    }
+    #controls {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      width: 60px;
+      height: 60px;
+      font-size: 24px;
+      background: #444;
+      color: white;
+      border: none;
+      border-radius: 10px;
+    }
+    #overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-size: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="400" height="400"></canvas>
+
+<div id="controls">
+  <button class="btn" onclick="movePlayer(0, -1)">⬆️</button>
+  <div>
+    <button class="btn" onclick="movePlayer(-1, 0)">⬅️</button>
+    <button class="btn" onclick="movePlayer(1, 0)">➡️</button>
+  </div>
+  <button class="btn" onclick="movePlayer(0, 1)">⬇️</button>
+</div>
+
+<div id="overlay"></div>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+const tileSize = 40;
+const rows = 10, cols = 10;
+const overlay = document.getElementById("overlay");
+
+const characterImg = new Image();
+characterImg.src = "https://yourusername.github.io/2dmaze-game/assets/character.png"; // Update with your actual GitHub Pages URL
+const bgImg = new Image();
+bgImg.src = "https://yourusername.github.io/2dmaze-game/assets/background.png"; // Optional background
+
+let level = 0;
+let timer = 60;
+let highScore = localStorage.getItem("mazeHighScore") || 0;
+
+const levels = [
+  // 10 maze arrays (0 = path, 1 = wall)
+  [
+    [0,1,0,0,0,1,0,0,0,0],
+    [0,1,0,1,0,1,0,1,1,0],
+    [0,0,0,1,0,0,0,0,1,0],
+    [1,1,1,1,1,1,1,0,1,0],
+    [0,0,0,0,0,0,1,0,1,0],
+    [0,1,1,1,1,0,1,0,1,0],
+    [0,0,0,0,1,0,1,0,0,0],
+    [0,1,1,0,1,0,1,1,1,0],
+    [0,0,0,0,1,0,0,0,0,0],
+    [1,1,1,0,1,1,1,1,1,0],
+  ],
+  // Add 9 more maze levels here...
+];
+let player = { x: 0, y: 0 };
+const goal = { x: 9, y: 9 };
+
+function drawMaze(maze) {
+  if (bgImg.complete) ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      ctx.fillStyle = maze[row][col] === 1 ? "#555" : "transparent";
+      ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
+    }
+  }
+}
+
+function drawPlayer() {
+  ctx.drawImage(characterImg, player.x * tileSize, player.y * tileSize, tileSize, tileSize);
+}
+
+function drawGoal() {
+  ctx.fillStyle = "gold";
+  ctx.fillRect(goal.x * tileSize + 10, goal.y * tileSize + 10, 20, 20);
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawMaze(levels[level]);
+  drawGoal();
+  drawPlayer();
+  drawTimer();
+}
+
+function movePlayer(dx, dy) {
+  const newX = player.x + dx;
+  const newY = player.y + dy;
+  const maze = levels[level];
+  if (maze[newY] && maze[newY][newX] === 0) {
+    player.x = newX;
+    player.y = newY;
+    checkWin();
+    draw();
+  }
+}
+
+function checkWin() {
+  if (player.x === goal.x && player.y === goal.y) {
+    level++;
+    if (level >= levels.length) {
+      overlay.innerHTML = `🎉 Game Complete!<br>High Score: ${highScore}<br><button onclick="restart()">Restart</button>`;
+      overlay.style.display = "flex";
+    } else {
+      localStorage.setItem("mazeHighScore", Math.max(highScore, level));
+      overlay.innerHTML = `🎉 Level ${level} Complete!<br><button onclick="nextLevel()">Next Level</button>`;
+      overlay.style.display = "flex";
+    }
+  }
+}
+
+function nextLevel() {
+  player = { x: 0, y: 0 };
+  timer = 60;
+  overlay.style.display = "none";
+  draw();
+}
+
+function restart() {
+  level = 0;
+  player = { x: 0, y: 0 };
+  timer = 60;
+  overlay.style.display = "none";
+  draw();
+}
+
+function drawTimer() {
+  ctx.fillStyle = "#fff";
+  ctx.font = "16px Arial";
+  ctx.fillText(`Time: ${timer}s`, 10, 20);
+}
+
+setInterval(() => {
+  if (overlay.style.display === "none") {
+    timer--;
+    if (timer <= 0) {
+      overlay.innerHTML = "⏱️ Time's up!<br><button onclick='restart()'>Try Again</button>";
+      overlay.style.display = "flex";
+    }
+    draw();
+  }
+}, 1000);
+
+document.addEventListener("keydown", (e) => {
+  switch (e.key) {
+    case "ArrowUp": movePlayer(0, -1); break;
+    case "ArrowDown": movePlayer(0, 1); break;
+    case "ArrowLeft": movePlayer(-1, 0); break;
+    case "ArrowRight": movePlayer(1, 0); break;
+  }
+});
+
+characterImg.onload = draw;
+</script>
+</body>
+</html>
