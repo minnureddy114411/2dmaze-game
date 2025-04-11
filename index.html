@@ -10,6 +10,9 @@
       overflow: hidden;
       background: #000;
       font-family: sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
     canvas {
       display: block;
@@ -32,14 +35,30 @@
       background: #333;
       color: #fff;
       box-shadow: 0 0 10px #0ff;
-      -webkit-user-select: none;
-      -webkit-touch-callout: none;
       user-select: none;
       touch-action: manipulation;
+    }
+    #mainMenu, #pauseScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 10;
     }
   </style>
 </head>
 <body>
+  <div id="mainMenu">
+    <h1>SkyCube Blaster</h1>
+    <button onclick="startGame()">Start Game</button>
+  </div>
   <canvas id="gameCanvas" width="400" height="700"></canvas>
   <div id="controls">
     <button id="leftBtn">⬅️</button>
@@ -49,24 +68,36 @@
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const mainMenu = document.getElementById('mainMenu');
 
-    let player = { x: 200, y: 650, width: 20, height: 20, clones: 0 };
-    let bullets = [];
-    let enemies = [];
-    let lasers = 0;
-    let kills = 0;
-    let score = 0;
-    let lives = 3;
-    let clonesActive = false;
-    let enemySpeed = 1;
+    let player, bullets, enemies, lasers, kills, score, lives, clonesActive, enemySpeed, movingLeft, movingRight, boss, paused;
+    let bgMusic = new Audio('https://cdn.pixabay.com/audio/2022/08/16/audio_881db79b95.mp3');
+    bgMusic.loop = true;
+    let shootSound = new Audio('https://cdn.pixabay.com/audio/2022/03/16/audio_f5d46cb512.mp3');
 
-    let movingLeft = false;
-    let movingRight = false;
-
-    document.getElementById("leftBtn").addEventListener("touchstart", e => { e.preventDefault(); movingLeft = true; });
+    document.getElementById("leftBtn").addEventListener("touchstart", e => { e.preventDefault(); movingLeft = true });
     document.getElementById("leftBtn").addEventListener("touchend", () => movingLeft = false);
-    document.getElementById("rightBtn").addEventListener("touchstart", e => { e.preventDefault(); movingRight = true; });
+    document.getElementById("rightBtn").addEventListener("touchstart", e => { e.preventDefault(); movingRight = true });
     document.getElementById("rightBtn").addEventListener("touchend", () => movingRight = false);
+
+    function startGame() {
+      mainMenu.style.display = 'none';
+      bgMusic.play();
+      player = { x: 200, y: 650, width: 20, height: 20, clones: 0 };
+      bullets = [];
+      enemies = [];
+      lasers = 0;
+      kills = 0;
+      score = 0;
+      lives = 3;
+      clonesActive = false;
+      enemySpeed = 1;
+      movingLeft = false;
+      movingRight = false;
+      boss = null;
+      paused = false;
+      updateGame();
+    }
 
     function drawPlayer() {
       ctx.fillStyle = '#0ff';
@@ -87,6 +118,13 @@
         ctx.fillStyle = e.color;
         ctx.fillRect(e.x, e.y, e.size, e.size);
       });
+    }
+
+    function drawBoss() {
+      if (!boss) return;
+      ctx.fillStyle = '#0af';
+      ctx.fillRect(boss.x, boss.y, boss.size, boss.size);
+      boss.bullets.forEach(b => ctx.fillRect(b.x, b.y, 5, 10));
     }
 
     function drawHUD() {
@@ -115,6 +153,8 @@
 
     function shoot() {
       bullets.push({ x: player.x + player.width / 2 - 1.5, y: player.y });
+      shootSound.currentTime = 0;
+      shootSound.play();
       for (let i = 1; i <= player.clones; i++) {
         bullets.push({ x: player.x - i * 25 + player.width / 2 - 1.5, y: player.y });
         bullets.push({ x: player.x + i * 25 + player.width / 2 - 1.5, y: player.y });
@@ -126,28 +166,36 @@
     function spawnEnemy() {
       const size = 20;
       const x = Math.random() * (canvas.width - size);
-      const color = Math.random() > 0.5 ? '#f00' : '#f0f';
+      const colors = ['#f00', '#f0f', '#ff0', '#0f0'];
+      const color = colors[Math.floor(Math.random() * colors.length)];
       enemies.push({ x, y: 0, size, color });
     }
 
-    setInterval(spawnEnemy, 500);
+    setInterval(spawnEnemy, 400);
+
+    function spawnBoss() {
+      boss = { x: 100, y: 0, size: 50, hp: 30, bullets: [] };
+    }
 
     function updateGame() {
+      if (paused) return;
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      if (movingLeft) {
-        player.x -= 4;
-        if (player.x < 0) player.x = 0;
-      }
-      if (movingRight) {
-        player.x += 4;
-        if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
-      }
+      if (movingLeft) player.x = Math.max(0, player.x - 4);
+      if (movingRight) player.x = Math.min(canvas.width - player.width, player.x + 4);
 
       bullets.forEach(b => b.y -= 5);
       bullets = bullets.filter(b => b.y > 0);
 
       enemies.forEach(e => e.y += enemySpeed);
+
+      if (boss) {
+        boss.y += 0.3;
+        if (Math.random() < 0.02) boss.bullets.push({ x: boss.x + boss.size / 2, y: boss.y + boss.size });
+        boss.bullets.forEach(b => b.y += 2);
+        boss.bullets = boss.bullets.filter(b => b.y < canvas.height);
+      }
 
       bullets.forEach((b, bi) => {
         enemies.forEach((e, ei) => {
@@ -156,39 +204,48 @@
             bullets.splice(bi, 1);
             score++;
             kills++;
-
-            if (kills % 25 === 0) {
-              // Power up
-            }
+            if (kills % 25 === 0) {}
             if (kills % 50 === 0 && lasers < 10) lasers++;
             if (kills % 75 === 0) activateClones();
             if (kills % 100 === 0) {
               enemySpeed *= 1.1;
               lives++;
+              spawnBoss();
             }
           }
         });
+        if (boss && b.x > boss.x && b.x < boss.x + boss.size && b.y > boss.y && b.y < boss.y + boss.size) {
+          bullets.splice(bi, 1);
+          boss.hp--;
+          if (boss.hp <= 0) boss = null;
+        }
       });
 
       enemies.forEach((e, ei) => {
-        if (
-          (e.y + e.size > player.y && e.x < player.x + player.width && e.x + e.size > player.x) ||
-          (player.clones && (
-            e.y + e.size > player.y && (
-              (e.x < player.x - 25 + player.width && e.x + e.size > player.x - 25) ||
-              (e.x < player.x + 25 + player.width && e.x + e.size > player.x + 25)
-            )
-          ))
-        ) {
+        if (e.y + e.size > player.y && e.x < player.x + player.width && e.x + e.size > player.x) {
           enemies.splice(ei, 1);
           lives--;
-          if (lives <= 0) alert('Game Over! Final Score: ' + score);
         }
       });
+
+      if (boss) {
+        boss.bullets.forEach((b, bi) => {
+          if (b.x > player.x && b.x < player.x + player.width && b.y > player.y) {
+            boss.bullets.splice(bi, 1);
+            lives--;
+          }
+        });
+      }
+
+      if (lives <= 0) {
+        alert('Game Over! Final Score: ' + score);
+        document.location.reload();
+      }
 
       drawPlayer();
       drawBullets();
       drawEnemies();
+      drawBoss();
       drawHUD();
 
       requestAnimationFrame(updateGame);
@@ -202,8 +259,6 @@
         clonesActive = false;
       }, 15000);
     }
-
-    updateGame();
   </script>
 </body>
 </html>
