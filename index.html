@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SkyCube Blaster</title>
   <style>
     body {
@@ -32,6 +32,9 @@
       background: #333;
       color: #fff;
       box-shadow: 0 0 10px #0ff;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      user-select: none;
       touch-action: manipulation;
     }
   </style>
@@ -40,7 +43,7 @@
   <canvas id="gameCanvas" width="400" height="700"></canvas>
   <div id="controls">
     <button id="leftBtn">⬅️</button>
-    <button id="laserBtn">💥</button>
+    <button onclick="useLaser()">💥</button>
     <button id="rightBtn">➡️</button>
   </div>
   <script>
@@ -60,11 +63,10 @@
     let movingLeft = false;
     let movingRight = false;
 
-    document.getElementById("leftBtn").addEventListener("touchstart", () => movingLeft = true);
+    document.getElementById("leftBtn").addEventListener("touchstart", e => { e.preventDefault(); movingLeft = true; });
     document.getElementById("leftBtn").addEventListener("touchend", () => movingLeft = false);
-    document.getElementById("rightBtn").addEventListener("touchstart", () => movingRight = true);
+    document.getElementById("rightBtn").addEventListener("touchstart", e => { e.preventDefault(); movingRight = true; });
     document.getElementById("rightBtn").addEventListener("touchend", () => movingRight = false);
-    document.getElementById("laserBtn").addEventListener("click", () => useLaser());
 
     function drawPlayer() {
       ctx.fillStyle = '#0ff';
@@ -119,7 +121,7 @@
       }
     }
 
-    setInterval(shoot, 50); // Faster auto-shoot (was 100ms)
+    setInterval(shoot, 100);
 
     function spawnEnemy() {
       const size = 20;
